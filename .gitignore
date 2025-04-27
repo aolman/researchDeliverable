@@ -1,0 +1,6 @@
+dist/
+build/
+*.spec
+*.xlsx
+*.txt
+venv/
