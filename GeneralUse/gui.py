@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt
 import pyqtgraph as pg
 import pyqtgraph.colormap as pcm
 import numpy as np
-from realData import calculateResults
+from dataAnalyzer import DataAnalyzer
 
 class DataSuite(QMainWindow):
     def __init__(self):
@@ -83,7 +83,7 @@ class DataSuite(QMainWindow):
         )
         self.file_button.clicked.connect(self.open_file_dialog)
         
-        self.file_note = QLabel('File should have columns named \n \"Time (min)\", \"Isomer 57\", \"Isomer 77\", \"IS\", and \"Marker\".')
+        self.file_note = QLabel('File should have columns named \n \"Time (min)\", \"IS\", \"Marker\", and each isomer should begin with \"Isomer\".')
         self.file_note.setStyleSheet("font-style: italic; font-size: 12px; margin-bottom: 10px; margin-top: 10px;")
         self.file_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
@@ -113,7 +113,16 @@ class DataSuite(QMainWindow):
                                 "}") 
         
         self.marker_checkbox_label = QLabel("Marker Present?")
+        self.desired_heatmap_iso_label = QLabel("Name of Isomer for Heatmap (as named in input file)")
         self.marker_checkbox_label.setStyleSheet("margin-top: 20px; padding: 0px; margin-right: 5px;")
+        self.desired_heatmap_iso_label.setStyleSheet("margin-top: 20px; padding: 0px; margin-right: 5px;")
+        self.desired_heatmap_iso = QLineEdit()
+        self.desired_heatmap_iso.setStyleSheet("QLineEdit"
+            "{"
+                "margin-top: 20px;"
+                "background : gray;"
+            "}") 
+        self.desired_heatmap_iso.setFixedWidth(200)
         self.marker_checkbox = QCheckBox()
         self.marker_checkbox.setStyleSheet(
             "QCheckBox"
@@ -138,13 +147,15 @@ class DataSuite(QMainWindow):
         self.grid_info_layout.addWidget(self.col_text, 1, 0)
         self.grid_info_layout.addWidget(self.num_droplets, 2, 0)
         self.grid_info_layout.addWidget(self.marker_checkbox_label, 3, 0)
+        self.grid_info_layout.addWidget(self.desired_heatmap_iso_label, 4, 0)
         
         self.grid_info_layout.addWidget(self.row_input, 0, 1)
         self.grid_info_layout.addWidget(self.col_input, 1, 1)
         self.grid_info_layout.addWidget(self.droplets_input, 2, 1)
         self.grid_info_layout.addWidget(self.marker_checkbox, 3, 1)
+        self.grid_info_layout.addWidget(self.desired_heatmap_iso, 4, 1)
         
-        for row in range(4):
+        for row in range(5):
             for col in range(2):
                 item = self.grid_info_layout.itemAtPosition(row, col)
                 if item is not None:
@@ -153,7 +164,7 @@ class DataSuite(QMainWindow):
                         widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         self.first_col_spacer = QWidget()
-        self.first_col_spacer.setFixedHeight(235)
+        self.first_col_spacer.setFixedHeight(215)
         
         self.first_col.addWidget(self.load_data_label)
         self.first_col.addWidget(self.file_path_label)
@@ -166,55 +177,6 @@ class DataSuite(QMainWindow):
         ##########
         
         self.second_col = QVBoxLayout()
-        
-        self.selection_layout = QGridLayout()
-        self.selections = ["Peak Numbers", "Peak Centers", "Peak Durations", "Calibrated 57 Intensity",
-                      "Calibrated 77 Intensity", "Internal Standard", "Uncalibrated 57 Intensity", "Uncalibrated 77 Intensity",
-                      "Calibrated Ratio", "Yield", "Calibrated 57 / Internal Standard Ratio",
-                      "Calibrated 77 / Internal Standard Ratio", "Potential Merged Drops", "Potential Split Drops", "Well List"]
-        
-        for i in range(len(self.selections)):
-            label = QLabel(self.selections[i])
-            label.setStyleSheet("margin-top: 8px; padding: 0px; margin-right: 5px;")
-            
-            cbox = QCheckBox()
-            cbox.setFixedWidth(18)
-            cbox.setStyleSheet(
-            "QCheckBox"
-            "{"
-            "background-color: white;"
-            "margin-top: 8px;"
-            "padding-left: 0px;"
-            "margin-left: 0px;"
-            "}"
-            "QCheckBox::pressed"
-            "{"
-            "background-color: gray"
-            "}"
-            "QCheckBox::checked"
-            "{"
-            "background-color: darkgray"
-            "}"
-            )
-            self.selection_layout.addWidget(label, i, 0)
-            self.selection_layout.addWidget(cbox, i, 1)
-            
-        self.second_col_spacer = QWidget()
-        self.second_col_spacer.setFixedHeight(90)
-        
-        self.selections_label = QLabel("Selections")
-        self.selections_label.setStyleSheet("font-size: 26px; margin-bottom: 10px; padding: 2px; border-bottom: 2px solid #fff")
-        self.selections_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.selection_layout.setSpacing(2)
-        self.selection_layout.setContentsMargins(50, 10, 50, 0)
-        self.second_col.addWidget(self.selections_label)
-        self.second_col.addLayout(self.selection_layout)
-        self.second_col.addWidget(self.second_col_spacer)
-        
-        ###########
-        ## END OF SECOND COL START OF THIRD COL
-        ###########
-        self.third_col = QVBoxLayout()
                 
         self.generate_label = QLabel("Generate Results")
         self.generate_label.setStyleSheet("font-size: 26px; margin-bottom: 10px; padding: 2px; border-bottom: 2px solid #fff")
@@ -270,36 +232,34 @@ class DataSuite(QMainWindow):
         self.generate_button.clicked.connect(self.generate_results)
         self.heatmap_spacer = QWidget()
         self.heatmap_spacer.setFixedHeight(20)
-        self.third_col_spacer = QWidget()
-        self.third_col_spacer.setFixedHeight(5)
+        self.second_col_spacer = QWidget()
+        self.second_col_spacer.setFixedHeight(20)
         self.view = pg.GraphicsLayoutWidget()
         self.view.setFixedSize(400, 300)
         self.view.setStyleSheet("margin-bottom: 0px; padding-bottom: 0px;")
         
-        self.third_col.addWidget(self.generate_label)
-        self.third_col.addWidget(self.output_file_name)
-        self.third_col.addWidget(self.output_folder_label)
-        self.third_col.addWidget(self.output_folder_button)
-        self.third_col.addWidget(self.generate_button)
-        self.third_col.addWidget(self.heatmap_spacer)
-        self.third_col.addWidget(self.view)
-        # self.third_col.addWidget(self.third_col_spacer)
+        self.second_col.addWidget(self.generate_label)
+        self.second_col.addWidget(self.output_file_name)
+        self.second_col.addWidget(self.output_folder_label)
+        self.second_col.addWidget(self.output_folder_button)
+        self.second_col.addWidget(self.generate_button)
+        self.second_col.addWidget(self.heatmap_spacer)
+        self.second_col.addWidget(self.view)
+        self.second_col.addWidget(self.second_col_spacer)
         
         self.spacer = QWidget()
-        self.spacer.setFixedHeight(50)
+        self.spacer.setFixedHeight(5)
         
         self.apply_size_policy_to_layout(self.first_col)
         self.apply_size_policy_to_layout(self.second_col)
-        self.apply_size_policy_to_layout(self.third_col)
         self.apply_size_policy_to_layout(self.col_layout)
 
         
         self.col_layout.addLayout(self.first_col)
         self.col_layout.addLayout(self.second_col)
-        self.col_layout.addLayout(self.third_col)
         
         self.main_layout.addLayout(self.col_layout, stretch=2)
-        self.main_layout.addWidget(self.spacer)
+        #self.main_layout.addWidget(self.spacer)
         self.central_widget.setLayout(self.main_layout)
         self.central_widget.setStyleSheet("QWidget {color: white; }")
  
@@ -332,21 +292,19 @@ class DataSuite(QMainWindow):
         num_droplets = int(self.droplets_input.text())
         marker_present = self.marker_checkbox.isChecked()
         output_filename = self.output_file_name.toPlainText()
-        selections = []
-        
-        for row in range(self.selection_layout.rowCount()):
-            item = self.selection_layout.itemAtPosition(row, 1).widget()
-            selections.append(item.isChecked())
-        
-        arr_2d = calculateResults(file_path, num_rows, num_cols, num_droplets, output_filename, selections, marker_present, output_folder)
-        arr_2d = np.array(arr_2d)
-        self.view.clear()
-        self.plot = self.view.addPlot()
-        self.img = pg.ImageItem(arr_2d)
-        color_map = pcm.getFromMatplotlib('gray')
-        self.img.setLookupTable(color_map.getLookupTable())
-        self.plot.addItem(self.img)
-        self.plot.invertY(True)
+        heatmap_iso_name = self.desired_heatmap_iso.text()
+        da = DataAnalyzer()
+        da.run_all(file_path, marker_present, num_rows, 
+                   num_cols, num_droplets, output_folder, output_filename)
+        if marker_present and heatmap_iso_name != "":
+            arr_2d = da.create_heatmap_array(num_rows, num_cols, num_droplets, "Isomer " + heatmap_iso_name)
+            self.view.clear()
+            self.plot = self.view.addPlot()
+            self.img = pg.ImageItem(arr_2d)
+            color_map = pcm.getFromMatplotlib('gray')
+            self.img.setLookupTable(color_map.getLookupTable())
+            self.plot.addItem(self.img)
+            self.plot.invertY(True)
         
 
 
