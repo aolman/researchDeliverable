@@ -18,7 +18,6 @@ import pyqtgraph as pg
 import pyqtgraph.colormap as pcm
 import numpy as np
 from dataAnalyzer import DataAnalyzer
-from realData import calculateResults
 
 class DataSuite(QMainWindow):
     def __init__(self):
